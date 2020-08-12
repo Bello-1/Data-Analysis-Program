@@ -1,0 +1,332 @@
+
+                            'DECLARES PARAMETER TYPE
+                      
+     Public Uliq As Single, Ugas_stp As Single, Ugas_avg As Single
+     Public Qliq As Single, Qgas_stp As Single, Qgas_avg As Double
+     Public Dpipe As Single, ARpipe As Single, Pie As Single
+     Dim p(0 To 30) As String, p_out As Single, pds As Single, Pavg As Single 'The pressure at different points in the column is stored in a array of 10 characters
+     Public Screen_prop As String, Tavg As Single            'Screen_prop is a string which containes the number of screens and the type
+     Public Troom As Single, Ghldp_stp As Single, Ghldp_avg As Single
+     Public vol As Single, ADC As Single, AED_stp As Single, AED_avg As Single
+     Public AED_mix_stp As Single, AED_mix_avg As Single, AED_vol_stp As Single
+     Public AED_vol_avg As Single, NoF As Integer, nscrn As Integer, scrnT As String
+     Public MeshN, OpenA As Single, Dwire As Single, DecayC As Double
+     
+     
+     
+
+
+                           'READ DATA FROM EXPERIMENTAL SHEET
+
+
+
+
+
+
+  Public Sub Calc()
+            
+     Dim i As Integer, Run_num As Integer
+     Dim Blankrun As Boolean
+   
+
+     Blankrun = False
+
+
+     i = 3
+
+  Do While Blankrun = False     'Because of the false condition, this loop will always run when program starts
+
+  If Sheets("Experiment Log (HYDRODYNAMIC)").Cells(i, "A").Value = "" Then 'This searches for an empty cell in the Run number column by changing row number, i
+    
+     Call LOG_hydro(i)          'If found, function LOG is called and i is sent to the function
+     Blankrun = True            'This breaks the loop
+  
+  Else
+
+     i = i + 1                  'If not found, move to next cell and check
+
+  End If
+  Loop
+ 
+     Run_num = Sheets("Experiment Log (HYDRODYNAMIC)").Cells(i, "A").Value  'This confirms that data has been logged in the hydrodynamic sheet
+     MsgBox "Run number " & Run_num & " has been logged in Hydrodynamic sheet "
+     Sheets("Experiment Log (HYDRODYNAMIC)").Select
+   If Run_num = Cells(i - 1, "A").Value Then                                'This is an error incase the same data is logged twice
+     MsgBox " you have logged the same data twice"
+   End If
+ 
+ Sheets("Experiment Log (HYDRODYNAMIC)").Select
+     
+     p(0) = 14.6959 + Cells(i, "M").Value     'The input pressure is the first data input in pressure array p(0 to 10). It is read, and coverted to absolute
+     p_out = 14.6959 + Cells(i, "N").Value    'The output pressure is also in the data input array as p(nscrn), however it is initalized here to ease calculations
+     Pavg = (p(0) + p_out) / 2
+     Tavg = 273.15 + Cells(i, "D").Value
+     Qliq = 0.0000166667 * Cells(i, "L").Value 'Both Qliq and Qgas_stp are read and converted to m^3/s
+     Qgas_stp = 0.0000166667 * Cells(i, "K").Value
+
+                                      
+                                          'PERFORM HYDRODYNAMIC CALCULATIONS
+     
+
+     Qgas_avg = Qgas_stp * (Tavg / 273.15) * (14.6959 / Pavg)
+     Pie = 3.14159
+     Dpipe = 0.0245 * 1
+     ARpipe = (Pie * Dpipe * Dpipe) / 4
+     Uliq = Qliq / ARpipe
+     Ugas_stp = Qgas_stp / ARpipe
+     Ugas_avg = Qgas_avg / ARpipe
+    
+                        'initializing number of screens properties as empty
+     'Screen_prop = ""
+     Screen_prop = Cells(i, "I").Value
+     If Len(Screen_prop) < 2 Or Len(Screen_prop) > 3 Then
+     MsgBox " Invalid Entry for Screen properties, String cannot be less than 2 characters or more than 3 characters"
+     End If
+     
+     
+     
+     nscrn = CInt(Left(Screen_prop, 2)) ' Read the first two characters in screen_prop string as the number of screen
+     
+     scrnT = Right(Screen_prop, 1) ' read the last character of screen_prop as the screen type
+  'MsgBox " " & scrnT & " "
+     Sheets("experimental data").Select
+     NoF = Cells(2, "J").Value
+   'MsgBox " " & nscrn & " "
+     'VALUES OF meshN and OpenA and Dwire depend on scrnT
+     If scrnT = "A" Then
+     MeshN = 20
+     OpenA = 0.46
+     Dwire = 0.0004064
+     MeshS = 0.0008636
+     
+     ElseIf scrnT = "B" Then
+     MeshN = 30
+     OpenA = 0.4
+     Dwire = 0.0003048
+     MeshS = 0.0005334
+     
+     ElseIf scrnT = "C" Then
+     MeshN = 40
+     OpenA = 0.36
+     Dwire = 0.000254
+     MeshS = 0.000381
+     
+     Else
+     MsgBox " Screen type unknown, Include new screen in directory"
+     End If
+     
+     DecayC = 1.3014 * (MeshS ^ 2.857) * (Dwire ^ -2.599)
+
+     
+
+ ' Screen_prop = Cells(i, "I").Value 'Screen_prop string is read from data sheet
+  
+ ' For j = 1 To Len(Screen_prop)
+     
+ ' If Mid(Screen_prop, j, 1) >= 1 And Mid(Screen_prop, j, 1) <= 9 Then
+   '  nscrn = nscrn + Mid(Screen_prop, j, 1) 'This copies any number greater than one and less than nine into nscrn string
+
+'  End If
+ ' Next j
+     pds = (p(0) - p_out) / nscrn
+
+
+  For k = 1 To nscrn
+     p(k) = p(k - 1) - pds 'pressure at different points in the column is calculated, and stored in p(0-10) where p(nscrn) is the pressure at the outlet
+  Next k
+  
+    vol = 0.001368110194
+    Ghldp_stp = Ugas_stp / (Uliq + Ugas_stp)
+    Ghldp_avg = Ugas_avg / (Uliq + Ugas_avg)
+    ADC = (p(0) - p_out) * 6894.75728 / (0.5 * 1000 * Uliq * Uliq)
+    AED_stp = (Uliq * (p(0) - p_out) * 6894.75728) / (1000 * (1 - Ghldp_stp) * 1.2)
+    
+    AED_avg = (Uliq * (p(0) - p_out) * 6894.75728) / (1000 * (1 - Ghldp_avg) * 1.2)
+
+    AED_mix_stp = (p(0) - p_out) * (Qgas_stp + Qliq) * 6894.75728
+    AED_mix_avg = (p(0) - p_out) * (Qgas_avg + Qliq) * 6894.75728
+    
+  
+    AED_vol_stp = AED_mix_stp / vol
+    AED_vol_avg = AED_mix_avg / vol
+    
+    Rewire = (1000 * Uliq * Dwire) / 0.001002
+    NDrag = ADC * (OpenA * OpenA) / (1 - OpenA)
+    NRewire = Rewire / OpenA
+    
+    
+    
+    
+    
+             
+ 
+
+                                          'PERFORM MASS TRANSFER CALCULATIONS
+ Dim runblank As Boolean     'This is the same code to find empty spaces repeated for mass tranfer calculations
+ Dim l As Integer
+
+ runblank = False
+
+
+     l = 3 '
+ 
+  Do While runblank = False  'Because of the false condition, this loop will always run when program starts
+
+  If Sheets("Experiment Log (MASS TRANSFER)").Cells(l, "A").Value = "" Then 'This searches for an empty cell in the Run number column by changing row number, j
+    
+     Call LOG_mass(l)     'If found, function LOG is called and l is sent to the function
+     runblank = True      'This breaks the loop
+  
+  Else
+
+     l = l + 1             'If not found, move to next cell and check
+
+  End If
+  Loop
+ 
+     Run_num = Sheets("Experiment Log (MASS TRANSFER)").Cells(l, "A").Value  'This confirms that data has been logged in mass transfer sheet
+     MsgBox "Run number " & Run_num & " has been logged in mass transfer sheet "
+     Sheets("Experiment Log (MASS TRANSFER)").Select
+     If Run_num = Cells(l - 1, "A").Value Then                              'This is an error incase the same data is logged twice
+     MsgBox " you have logged the same data twice"
+     End If
+
+
+
+Dim m As Integer              'm is a counter
+Dim SL(0 To 10) As String     'This string contains fixed values of the sampling points distances
+Dim LNDoDi(0 To 10) As String 'This string contains The log(DO/DOin) values for each sampling point
+Dim RT_AVG(0 To 10) As String 'This string contains the residence times at different sampling points if dispersion velocity is measured at AVG COND.
+Dim RT_STP(0 To 10) As String 'Residence times calculated at STP are stored in this string
+Dim e As Single
+Dim y() As Single, x() As Single
+ReDim y(1 To 9, 0 To 0), x(1 To 9, 0 To 0)
+
+ e = 2.718282
+  
+ For C = 2 To 10
+ SL(C - 1) = Sheets("experimental data").Cells(C, "F").Value
+ Next C
+
+Sheets("Experiment Log (MASS TRANSFER)").Select
+
+For m = 1 To NoF And n = 0 'This loop calculates and output the RT_AVG , RT_STP, log(DO/DOin) to the correct cells
+
+RT_AVG(m) = SL(m) / (Ugas_avg + Uliq)
+
+RT_STP(m) = SL(m) / (Ugas_stp + Uliq)
+
+LNDoDi(m) = (LOG(Cells(l, 15 + m).Value / Cells(l, 15).Value)) / (LOG(e))
+
+Cells(l, 28 + m).Value = RT_STP(m)
+
+Cells(l, 37 + m).Value = LNDoDi(m)
+
+y(m, n) = LNDoDi(m)
+
+x(m, n) = RT_STP(m)
+
+Next m
+
+kla_par = Application.LinEst(y, x, True, True)
+  
+
+
+     Cells(l, "BE").Value = NoF
+     Cells(l, "AU").Value = kla_par(1, 1)
+     Cells(l, "AV").Value = kla_par(2, 1)
+     Cells(l, "AW").Value = kla_par(3, 1)
+     Cells(l, "AX").Value = kla_par(4, 1)
+     Cells(l, "AY").Value = kla_par(5, 1)
+     Cells(l, "AZ").Value = kla_par(1, 2)
+     Cells(l, "BA").Value = kla_par(2, 2)
+     Cells(l, "BB").Value = kla_par(3, 2)
+     Cells(l, "BC").Value = kla_par(4, 2)
+     Cells(l, "BD").Value = kla_par(5, 2)
+
+                                              'GENERATE OUTPUT INFORMATION
+    Sheets("Experiment Log (HYDRODYNAMIC)").Select
+    
+    Cells(i, "AC").Value = Uliq
+    Cells(i, "AD").Value = Ugas_stp
+    Cells(i, "AE").Value = Ugas_avg
+    Cells(i, "AF").Value = Ghldp_stp
+    Cells(i, "AG").Value = Ghldp_avg
+    Cells(i, "AH").Value = pds
+    Cells(i, "AI").Value = ADC
+    Cells(i, "AJ").Value = AED_stp
+    Cells(i, "AK").Value = AED_avg
+    Cells(i, "AL").Value = AED_mix_stp
+    Cells(i, "AM").Value = AED_mix_avg
+    Cells(i, "AN").Value = AED_vol_stp
+    Cells(i, "AO").Value = AED_vol_avg
+    Cells(i, "AS").Value = DecayC
+    Cells(i, "AP").Value = Rewire
+    Cells(i, "AQ").Value = NRewire
+    Cells(i, "AR").Value = NDrag
+    
+    
+    
+    
+    
+    
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+End Sub
+
+
+   
+
+
+Public Function LOG_hydro(i As Integer) As Integer 'This is the function LOG which recives integer "i" for an empty row with column "A"
+
+'
+' LOG Macro
+'
+Dim LI As String
+
+'
+    LI = "A" & i           'see comment above
+    Sheets("experimental data").Select
+    Range("B2:B25").Select 'This is the range of values for the experimental data
+    Selection.Copy
+    Sheets("Experiment Log (HYDRODYNAMIC)").Select
+    Range(LI).Select       'This is the space avalable to post the values
+
+    Selection.PasteSpecial Paste:=xlAll, Operation:=xlNone, SkipBlanks:=False _
+        , Transpose:=True
+   End Function
+
+Public Function LOG_mass(l As Integer) As Integer 'This is the function LOG which recives integer "l" for an empty row with column "A"
+
+'
+' LOG Macro
+'
+Dim Ll As String
+
+'
+    Ll = "A" & l           'see comment above
+    Sheets("experimental data").Select
+    Range("B2:B25").Select 'This is the range of values for the experimental data
+    Selection.Copy
+    Sheets("Experiment Log (MASS TRANSFER)").Select
+    Range(Ll).Select       'This is the space avalable to post the values
+
+    Selection.PasteSpecial Paste:=xlAll, Operation:=xlNone, SkipBlanks:=False _
+        , Transpose:=True
+   End Function
+
+
